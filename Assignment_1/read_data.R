@@ -4,8 +4,6 @@
 D <- read.csv("DST_BIL54.csv")
 str(D)
 
-summary(D)
-
 # See the help
 ?strftime
 D$time <- as.POSIXct(paste0(D$time,"-01"), "%Y-%m-%d", tz="UTC")
@@ -22,3 +20,22 @@ D$total <- as.numeric(D$total) / 1E6
 teststart <- as.POSIXct("2024-01-01", tz="UTC")
 Dtrain <- D[D$time < teststart, ]
 Dtest <- D[D$time >= teststart, ]
+
+
+# 1.1 Plot the training data
+# Ensure we are using the fractional year (x-axis) and the total vehicles (y-axis)
+plot(Dtrain$year, Dtrain$total, 
+     type = "o", 
+     col = "hotpink",
+     lwd = 2,
+     main = "Total Registered Motor Vehicles in Denmark (Training Data)",
+     cex.main = 0.9,    # Making the title (main) smaller
+     xlab = "Time (Year)",
+     ylab = "Total Vehicles (Millions)")
+
+# Optional: Add gridlines for easier reading
+grid()
+
+Dtrain$total[1:3]
+
+
