@@ -1,6 +1,5 @@
 ### Read training data
 #! Perhaps you need to set the working directory!?
-#setwd("/home/pbac/g/course02417/2025/assignment1")
 D <- read.csv("DST_BIL54.csv")
 str(D)
 
@@ -8,7 +7,7 @@ str(D)
 ?strftime
 D$time <- as.POSIXct(paste0(D$time,"-01"), "%Y-%m-%d", tz="UTC")
 D$time
-class(D$time)
+class(D$time)/
 
 ## Year to month for each of them
 D$year <- 1900 + as.POSIXlt(D$time)$year + as.POSIXlt(D$time)$mon / 12
