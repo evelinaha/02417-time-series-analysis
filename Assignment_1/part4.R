@@ -1,9 +1,6 @@
 # R script for Part 4 of Assignment 1
 # Imports
-library(fpp2)
-library(dplyr)
-library(tidyverse)
-
+library(ggplot2)
 ### Read training data (stored in the global environment)
 D <- read.csv("DST_BIL54.csv")
 str(D)
@@ -59,6 +56,7 @@ grid()
 weights <- 1/diag(Sigma_local)
 sum_weights_wls <- sum(weights)
 
+
 cat("The sum of lambda-weights for WLS is:", sum_weights_wls, "\n")
 
 # Corresponding Sum of Weights in an OLS Model
@@ -97,11 +95,10 @@ print(theta_WLS)
 
 
 # 4.5. Forecast for the next 12 months
-
-n <- nrow(Dtrain)
-p <- 2 # Intercept and Slope from thw WLS model
-lambda <- 0.95
-weights <- lambda^((n-1):0)
+# Intercept and Slope from the WLS model
+Tmemory <- sum(weights)
+p <- 2
+lambda <- 0.9
 W <- diag(weights)
 
 # WLS Estimation
@@ -113,7 +110,7 @@ yhat_wls <- X %*% theta_WLS
 e_wls <- y - yhat_wls
 # Weighted RSS
 RSS_wls <- sum(weights * e_wls^2) 
-sigma2_wls <- as.numeric(RSS_wls / (n - p))
+sigma2_wls <- as.numeric(RSS_wls / (Tmemory - p))
 
 # Create test data placeholder for the next 12 months
 last_time <- max(Dtrain$year)
@@ -124,11 +121,11 @@ Dtest_12 <- cbind(1, future_months)
 y_pred_wls <- Dtest_12 %*% theta_WLS
 
 # Prediction Variance (includes sigma2_wls + parameter uncertainty)
-V_pred <- sigma2_wls * (1 + diag(Xtest_12 %*% XTWX_inv %*% t(Xtest_12)))
+V_pred <- sigma2_wls * (1 + diag(Dtest_12 %*% XTWX_inv %*% t(Dtest_12)))
 se_pred <- sqrt(V_pred)
 
 # Confidence Intervals (95%)
-t_crit <- qt(0.975, df = n - p)
+t_crit <- qt(0.975, df = Tmemory - p)
 y_pred_lwr_wls <- y_pred_wls - t_crit * se_pred
 y_pred_upr_wls <- y_pred_wls + t_crit * se_pred
 
@@ -146,7 +143,7 @@ print(head(df_forecast))
 
 # OLS Comparison
 # OLS Setup (Weights are all 1)
-W_ols <- diag(1, nrow = n)
+W_ols <- diag(1, nrow = N)
 
 # OLS Estimation
 XTX_inv <- solve(t(X) %*% X)
@@ -156,13 +153,13 @@ theta_OLS <- XTX_inv %*% t(X) %*% y
 yhat_ols <- X %*% theta_OLS
 e_ols <- y - yhat_ols
 RSS_ols <- sum(e_ols^2) 
-sigma2_ols <- as.numeric(RSS_ols / (n - p))
+sigma2_ols <- as.numeric(RSS_ols / (N - p))
 
 # Point Forecasts
-y_pred_ols <- Xtest_12 %*% theta_OLS
+y_pred_ols <- Dtest_12 %*% theta_OLS
 
 # OLS Prediction Variance
-V_pred_ols <- sigma2_ols * (1 + diag(Xtest_12 %*% XTX_inv %*% t(Xtest_12)))
+V_pred_ols <- sigma2_ols * (1 + diag(Dtest_12 %*% XTX_inv %*% t(Dtest_12)))
 se_pred_ols <- sqrt(V_pred_ols)
 
 # Confidence Intervals (95%)
@@ -213,7 +210,7 @@ ggplot() +
        x = "Year", y = "Traffic (Millions)") +
   theme_minimal()
 
-
+# Residuals
 # Compute residuals for the test set
 e_ols <- df_forecast_ols$y_true - df_forecast_ols$y_pred
 e_wls <- df_forecast$y_true - df_forecast$y_pred
