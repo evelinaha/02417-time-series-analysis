@@ -100,7 +100,7 @@ print(theta_WLS)
 
 n <- nrow(Dtrain)
 p <- 2 # Intercept and Slope from thw WLS model
-lambda <- 0.9
+lambda <- 0.95
 weights <- lambda^((n-1):0)
 W <- diag(weights)
 
@@ -216,13 +216,14 @@ ggplot() +
 
 # Compute residuals for the test set
 e_ols <- df_forecast_ols$y_true - df_forecast_ols$y_pred
-e_wls <- df_forecast$y_true - df_forecast$y_pred # Also check WLS!
+e_wls <- df_forecast$y_true - df_forecast$y_pred
 
+par(mfrow=c(1,2)) 
 # Generate the Normal QQ-plot (OLS)
-qqnorm(e_ols, main = "Normal Q-Q Plot: OLS Residuals", col = "cadetblue2", pch = 16)
+qqnorm(e_ols, main = "Q-Q Plot: OLS Residuals", col = "cadetblue2", pch = 16)
 qqline(e_ols, col = "red", lwd = 2)
 
 # Generate the WLS QQ-plot for comparison
-qqnorm(e_wls, main = "Normal Q-Q Plot: WLS Residuals", col = "hotpink", pch = 16)
+qqnorm(e_wls, main = "Q-Q Plot: WLS Residuals", col = "hotpink", pch = 16)
 qqline(e_wls, col = "blue", lwd = 2)
 
