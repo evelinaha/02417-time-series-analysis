@@ -108,10 +108,10 @@ R <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
 line_data_2 <- RLS_with_forgetting(R, lambda_2)
 
 par(mfrow=c(2, 2))
-plot(line_data_1$thetas[1, ], type='l', main='θ1,t lambda =  0.7')
-plot(line_data_1$thetas[2, ], type='l', main='θ2,t, lambda =  0.7')
-plot(line_data_2$thetas[1, ], type='l', main='θ1,t, lambda =  0.99')
-plot(line_data_2$thetas[2, ], type='l', main='θ2,t, lambda =  0.99')
+plot(Dtrain$year, line_data_1$thetas[1, ], type='l', main='θ1,t lambda =  0.7', xlab='Year', ylab='Theta value')
+plot(Dtrain$year, line_data_1$thetas[2, ], type='l', main='θ2,t, lambda =  0.7', xlab='Year', ylab='Theta value')
+plot(Dtrain$year, line_data_2$thetas[1, ], type='l', main='θ1,t, lambda =  0.99', xlab='Year', ylab='Theta value')
+plot(Dtrain$year, line_data_2$thetas[2, ], type='l', main='θ2,t, lambda =  0.99', xlab='Year', ylab='Theta value')
 
 #------------------------------------------------------------------------#
 
@@ -153,8 +153,8 @@ predictions_2 = prediction_data_2$predictions
 residuals_2 = prediction_data_2$residuals
 
 par(mfrow=c(2, 1))
-plot(residuals_1[5:length(residuals_1)], type='l', main='residuals with lambda =  0.7')
-plot(residuals_2[5:length(residuals_2)], type='l', main='residuals with lambda =  0.99')
+plot(residuals_1[5:length(residuals_1)], type='l', main='residuals with lambda =  0.7', xlab='Observation', ylab='Residual')
+plot(residuals_2[5:length(residuals_2)], type='l', main='residuals with lambda =  0.99', xlab='Observation', ylab='Residual')
 
 #------------------------------------------------------------------------#
 
@@ -181,7 +181,8 @@ k_step_predictions <- function (R, lambda, k) {
     residuals[t+k] = k_step_prediction_error
     predictions[t+k] = k_step_prediction
   }
-  return_value <- list("residuals" = residuals, "predictions" = predictions)
+  
+  return_value <- list("residuals" = residuals, "predictions" = predictions, "theta" = theta)
   return(return_value)
 }
 
@@ -221,7 +222,6 @@ for (k in 1:NUMBER_OF_K) {
   lines(lambdas, rmse_matrix[, k], col = colors[k])
 }
 
-
 # 4. Add a legend to identify the lines
 legend("topleft", 
        legend = paste("k =", 1:NUMBER_OF_K), 
@@ -233,7 +233,79 @@ legend("topleft",
 #------------------------------------------------------------------------#
 
 # 5.7
-lambda = 0.6
+lambda = 0.7
 R <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
-RLS_model = RLS_with_forgetting(R, lambda)
-final_theta = RLS_model$theta
+RLS = RLS_with_forgetting(R, lambda)
+final_theta = RLS$theta
+predicted_values <- numeric(12)
+
+
+for (t in 1:12) {
+  x_t <- matrix(c(1, Dtest$year[t]), nrow = 2, ncol = 1)
+  predicted_values[t] <- (t(x_t) %*% final_theta)[1,1]
+}
+
+plot(Dtest$year, predicted_values, 
+     type = "l", 
+     col = "blue", 
+     lwd = 2,
+     main = "Predicted vs Actual Values (Test Set)",
+     xlab = "Time",
+     ylab = "Value")
+
+lines(Dtest$year, Dtest$total,
+      col = "red",
+      lwd = 2)
+
+legend("topleft",
+       legend = c("Predicted", "Actual"),
+       col = c("blue", "red"),
+       lwd = 2)
+
+# ============================================================
+# COMPARISON: OLS vs WLS vs RLS on the Test Set (Generated with Claude)
+# ============================================================
+
+# --- RLS final theta (from file 2, lambda = 0.7) ---
+lambda_rls <- 0.9
+R_init <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
+rls_result <- RLS_with_forgetting(R_init, lambda_rls)
+theta_RLS <- rls_result$theta
+
+# --- Generate predictions for each model on Dtest ---
+X_test <- cbind(1, Dtest$year)
+
+pred_ols <- X_test %*% theta_OLS
+pred_wls <- X_test %*% theta_WLS
+pred_rls <- X_test %*% theta_RLS
+
+# --- RMSE Comparison ---
+rmse <- function(actual, predicted) sqrt(mean((actual - predicted)^2))
+
+cat("Test Set RMSE Comparison:\n")
+cat("  OLS RMSE:", round(rmse(Dtest$total, pred_ols), 4), "\n")
+cat("  WLS RMSE:", round(rmse(Dtest$total, pred_wls), 4), "\n")
+cat("  RLS RMSE:", round(rmse(Dtest$total, pred_rls), 4), "\n")
+
+# --- Combined Plot ---
+y_range <- range(c(Dtest$total, pred_ols, pred_wls, pred_rls))
+
+plot(Dtest$year, Dtest$total,
+     type = "b", pch = 16, col = "black", lwd = 2,
+     ylim = y_range,
+     main = "Test Set Forecast: OLS vs WLS vs RLS",
+     xlab = "Year", ylab = "Traffic (Millions)")
+
+lines(Dtest$year, pred_ols, col = "cadetblue2", lwd = 2, lty = 2)
+lines(Dtest$year, pred_wls, col = "hotpink",    lwd = 2, lty = 2)
+lines(Dtest$year, pred_rls, col = "darkorange",  lwd = 2, lty = 2)
+
+legend("topleft",
+       legend = c("Actual", 
+                  paste0("Global OLS"), 
+                  paste0("Local WLS (λ=0.9)"),
+                  paste0("RLS (λ=", lambda_rls, ")")),
+       col    = c("black", "cadetblue2", "hotpink", "darkorange"),
+       lwd    = 2, lty = c(1, 2, 2, 2), pch = c(16, NA, NA, NA))
+
+

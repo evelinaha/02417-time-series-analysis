@@ -1,5 +1,5 @@
 ### Read training data
-
+DST_BIL54 <- read.csv("DST_BIL54.csv")
 
 
 # initiating the dataframe 
