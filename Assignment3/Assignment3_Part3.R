@@ -225,50 +225,95 @@ plot(model_order, RMSE_results, type = "b", pch = 19, col = rmse_cols,
 points(model_order[best_rmse_idx], RMSE_results[best_rmse_idx], col = "red", pch = 19, cex = 1.2)
 
 
-# TESTING OF 3.9 
+#  3.9  MULTI STEP FOR MODEL ORDER UD TO e
 
-fit_best <- lm(Ph ~ -(Ph.l1 + Ph.l2 + Ph.l3 + Ph.l4) + Tdelta + Tdelta.l1 + Tdelta.l2 + Tdelta.l3 + Gv + Gv.l1 + Gv.l2 + Gv.l3, data = box_data)
-
-# Start simulation at index 5
 n <- nrow(box_data)
-sim_Ph <- numeric(n)
-sim_Ph[1:4] <- box_data$Ph[1:4] 
 
-for(t in 5:n) {
-  # Note: Gv and Tdelta are always 'real' data
-  # Ph lags are the 'simulated' values we generated in previous loop steps
-  current_step <- data.frame(
-    Gv = box_data$Gv[t],
-    Tdelta = box_data$Tdelta[t],
-    Ph.l1 = sim_Ph[t-1],
-    Ph.l2 = sim_Ph[t-2],
-    Ph.l3 = sim_Ph[t-3],
-    Ph.l4 = sim_Ph[t-4]
-  )
+
+sim_list <- list()
+Models_list <- list()
+
+p <- 1
+
+while (p <= max_p) {
   
-  sim_Ph[t] <- predict(fit_best, newdata = current_step)
-  aic_results_best <- AIC(fit_best)
-  bic_results_best <- BIC(fit_best)
+  cat("Running model with p =", p, "\n")
+  
+  # ---- Build the ARX model of order p dynamically ---- 
+  
+  # AR terms  NOTE negative sign 
+  ar_terms <- paste0("Ph.l", 1:p, collapse = " + ")
+  ar_terms <- paste0("-(", ar_terms, ")")
+  
+  # Tdelta terms
+  tdelta_terms <- c("Tdelta", paste0("Tdelta.l", 1:(p-1)))
+  tdelta_terms <- paste(tdelta_terms, collapse = " + ")
+  
+  # Gv terms
+  gv_terms <- c("Gv", paste0("Gv.l", 1:(p-1)))
+  gv_terms <- paste(gv_terms, collapse = " + ")
+  
+  formula_str <- paste("Ph ~", ar_terms, "+", tdelta_terms, "+", gv_terms)
+  formula_obj <- as.formula(formula_str)
+  
+  #debugging to see if each model is correct
+  print(formula_obj)
+  
+  # ---- Fit model ----
+  fit <- lm(formula_obj, data = Data_train)
+  Models_list[[p]] <- fit
+  
+  # ---- Simulation ----
+  sim_Ph <- numeric(n)
+  sim_Ph[1:p] <- box_data$Ph[1:p]
+  
+  for (t in (p+1):n) {
+    
+    current_step <- data.frame(
+      Gv = box_data$Gv[t],
+      Tdelta = box_data$Tdelta[t]
+    )
+    
+    # Add lagged variables dynamically
+    for (i in 1:(p-1)) {
+      current_step[[paste0("Gv.l", i)]] <- box_data$Gv[t - i]
+      current_step[[paste0("Tdelta.l", i)]] <- box_data$Tdelta[t - i]
+    }
+    
+    for (i in 1:p) {
+      current_step[[paste0("Ph.l", i)]] <- sim_Ph[t - i]
+    }
+    
+    sim_Ph[t] <- predict(fit, newdata = current_step)
+  }
+  
+  sim_list[[p]] <- sim_Ph
+  
+  p <- p + 1
 }
 
 
+# plotting the different multi step model orders along the observed data 
+par(mfrow = c(1,1))
 
-par(mfrow = c(1, 1))
-plot(box_data$Ph,  type = "l", col = "black", alpha=0.7, lwd = 1,
-     main = "Observed vs. Simulated in Multi-Step Simulation",
+plot(box_data$Ph, type = "l",
+     col = "black", lwd = 3,
+     main = "Observed vs Simulated Models",
      xlab = "Time Index", ylab = "Heating Power (Ph)",
-     ylim = range(c(box_data$Ph, sim_Ph), na.rm = TRUE)) 
-lines(sim_Ph, col = "red", alpha=0.5, lwd = 1.5, lty = 1)
+     ylim = range(c(box_data$Ph, unlist(sim_list)), na.rm = TRUE))
 
+colors <- rainbow(max_p)
 
-legend("topright", 
-       legend = c("Observed (Actual)", "Multi-step Simulation"),
-       col = c("black", "red", alpha=0.7), 
-       lwd = c(1, 1), 
+for (p in seq_along(sim_list)) {
+  lines(sim_list[[p]],
+        col = adjustcolor(colors[p], alpha.f = 0.6),
+        lwd = 1)
+}
+
+legend("topright",
+       legend = c("Observed", paste0("p = ", 1:max_p)),
+       col = c("black", colors),
+       lwd = c(3, rep(1, max_p)),
        bg = "white",
        cex = 0.8)
-
-
-
-
 
