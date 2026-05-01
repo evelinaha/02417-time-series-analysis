@@ -96,6 +96,7 @@ legend("topleft",
 
 ### 1.3
 # Kalman filter
+# From theorems 10.60
 myKalmanFilter <- function(
     y,             # Vector of observations y_t
     theta,       # Model parameters for X_{t+1} = a - b*X_t + c*e_t
@@ -121,7 +122,7 @@ myKalmanFilter <- function(
       P_pred[t] <- P_prior
     } else {
       x_pred[t] <- a*x_filt[t-1] + b
-      P_pred[t] <- a*P_filt[t-1]*t(a) + sigma1 # Maybe it shouldn't be power of 2
+      P_pred[t] <- a*P_filt[t-1]*t(a) + sigma1
     }
     
     # the update step
@@ -213,22 +214,37 @@ legend("topleft",
 #----------------------------------------------#
 
 ### 1.4
+
+log_likelihood <- function(Y, R) {
+  Nstar <- length(Y)
+  total <- 0
+  
+  for (i in 1:Nstar) {
+    Yi <- Y[[i]]
+    Ri <- R[[i]]
+    
+    term1 <- log(Ri)
+    term2 <- t(Yi) %*% solve(Ri) %*% Yi
+    
+    total <- total + term1 + term2
+  }
+  
+  return(0.5 * total)
+}
+
+# from theorem 10.149
 myLogLikFun <- function(theta, y, R, x_prior = 0, P_prior = 10) {
   a <- theta[1]
   b <- theta[2]
   sigma1 <- theta[3]
   
-  kf_result <- myKalmanFiter(y, theta, R, x_prior, P_prior)
+  kf_result <- myKalmanFilter(y, theta, R, x_prior, P_prior)
   err <- kf_result$innovation
-  S <- kf_result$innovatizon_var
+  S <- kf_result$innovation_var
   
-  # Compute log-likelihood contributions from each time step
-  logL <- sum(dnorm(err,
-                    mean = 0,
-                    sd = sqrt(S),
-                    log = TRUE))
-  logL <- 
-    return(-logL)  # Return negative log-likelihood for minimization
+  logL <- sum(log(S) + err^2 / S)
+  
+  return(0.5 * logL) # Return negative log-likelihood for minimization
 }
 
 # Known observation noise variance
