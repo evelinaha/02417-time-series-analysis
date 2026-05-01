@@ -121,17 +121,17 @@ myKalmanFilter <- function(
       P_pred[t] <- P_prior
     } else {
       x_pred[t] <- a*x_filt[t-1] + b
-      P_pred[t] <- a^2*P_filt[t-1] + sigma1^2
+      P_pred[t] <- a*P_filt[t-1]*t(a) + sigma1 # Maybe it shouldn't be power of 2
     }
     
     # the update step
     innovation[t] <- y[t] - x_pred[t]
     innovation_var[t] <- P_pred[t] + R
     
-    K_t <- P_pred[t] / innovation_var[t]
+    K_t <- P_pred[t] * solve(innovation_var[t])
     
     x_filt[t] <- x_pred[t] + K_t * (y[t]-x_pred[t])
-    P_filt[t] <- P_pred[t] - K_t^2*innovation_var[t]
+    P_filt[t] <- P_pred[t] - K_t*innovation_var[t]*t(K_t)
   }
   
   return(list(
@@ -218,9 +218,9 @@ myLogLikFun <- function(theta, y, R, x_prior = 0, P_prior = 10) {
   b <- theta[2]
   sigma1 <- theta[3]
   
-  kf_result <- myKalmanFilter(y, theta, R, x_prior, P_prior)
+  kf_result <- myKalmanFiter(y, theta, R, x_prior, P_prior)
   err <- kf_result$innovation
-  S <- kf_result$innovation_var
+  S <- kf_result$innovatizon_var
   
   # Compute log-likelihood contributions from each time step
   logL <- sum(dnorm(err,
