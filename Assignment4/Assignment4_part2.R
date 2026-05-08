@@ -89,7 +89,7 @@ kf_logLik_dt <- function(par, df) {
   B   <- matrix() # input matrix
   Qlt <- matrix() # lower-triangle of system covariance matrix
   Q   <- Qlt %*% t(Qlt) # THAT IS!!! The system covariance matrix is given by Qlt %*% t(Qlt) (and is this symmetric positive definite)
-  H   <- matrix() # observation matrix NOTE  THIS IS C ! 
+  H   <- matrix() # observation matrix NOTE  THIS IS C! 
   X0  <- matrix() # initial state
   R_obs <- matrix() # observation noise covariance matrix
   obs_cols <- c("Y") # observation column names
@@ -122,7 +122,7 @@ kf_logLik_dt <- function(par, df) {
         x_pred <- X0
         P_pred <- P_est
       } else {
-        x_pred <-  A %*% x_est + B %*% U[t, ] # NOTE x_est is x_t-1 as is was initiated last cycle 
+        x_pred <-  A %*% x_est + B %*% U[t, ]  # NOTE x_est is x_t-1 as is was initiated last cycle why not G included??
         P_pred <-  A %*% P_est %*% t(A) + Q # 10.77 in the book P_pred is Sigmaxx,t|t
       }
     
@@ -137,8 +137,8 @@ kf_logLik_dt <- function(par, df) {
     logLik <- logLik - 0.5*(sum(log(2*pi*S_t)) + t(innov) %*% solve(S_t, innov))
     
     # update step
-    K_t    <- P_pred * t(Q)* solve(innovation_var) # Kalman gain
-    x_est  <- x_pred + K_t * (Y[t, ] - H %*% x_pred) # (10.73) from the book  reconstructed state
+    K_t    <- P_pred %*% t(H) %*% solve(innovation_var) # Kalman gain 
+    x_est  <- x_pred + K_t %*% (Y[t, ] - H %*% x_pred) # (10.73) from the book  reconstructed state
     P_est  <- P_pred - K_t %*% innovation_var %*% t(K_t) # (10.74) in the book reconstructed covariance
   } 
   
@@ -156,39 +156,41 @@ estimate_dt <- function(start_par, df, lower=NULL, upper=NULL) {
   )
 }
 
+#Implement:
+#• Complete the function
+#• Map the parameter vector to the appropriate matrices A, B, G, C, Σx, Σy.
+#• Estimate the model parameters by maximizing the likelihood (use optim).
+#• Adjust the initial guesses and parameter bounds if necessary to achieve a good fit
+
+# whats A in this ??
+# B is the input vector with the given values 
+# C is a observation matrix but I am doubtfull as to what that is in this case
+# G is lower-triangle of system covariance matrix 
+# Sigma x (signal noise) and Sigma y (observation noise) are the guesses right ? 
+# watch 02417 Lecture 12 part C: Example: Initialization of Kalman filter 
+# at 0:28 sigma yy = ?
+# at 2:51 to see kalman filter initialization 
+
+# 02417 Lecture 12 part D: Maximum Likelihood with Kalman filter 
+# at around 9:00 the run of maximize log lik is done 
 
 
-## --- Select relevant columns (optional but clean) ---
-df <- transformer_data[, c("Y", "Ta", "S", "I")]
 
-## --- Define starting parameters ---
-# Example for 2D state:
-# A (2x2) = 4 params
-# B (2x3) = 6 params
-# Qlt (lower triangular 2x2) = 3 params
-# R_obs (1x1) = 1 param
-start_par <- c(
-  0.5, 0,   # A row 1
-  0, 0.5,   # A row 2
-  0.1, 0.1, 0.1,   # B row 1
-  0.1, 0.1, 0.1,   # B row 2
-  0.1, 0, 0.1,     # Qlt (lower triangular)
-  0.1              # R_obs
-)
 
-## --- Test log-likelihood ---
-ll_val <- kf_logLik_dt(start_par, df)
-print(ll_val)
 
-## --- Run estimation ---
-result <- estimate_dt(
-  start_par = start_par,
-  df = df
-)
 
-## --- Output results ---
-print(result$par)
-print(result$value)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
