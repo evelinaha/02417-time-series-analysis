@@ -3,19 +3,19 @@ kf_logLik_dt <- function(par, df) {
   # df: data frame with observations and inputs as columns (Y, Ta, S, I)
   # par: Could be on the form c(A11, A12, A21, A22, B11, B12, B21, B22, Q11, Q12, Q22)
   # A is a 2x2 matrix
-  A <- matrix(par[1:4], nrow = 2, ncol = 2)
+  A <- matrix(par[1:4], nrow = 2, byrow = TRUE)
   # B is 2x3 (maps 3 inputs to 2 states)
-  B <- matrix(par[5:10], nrow = 2, ncol = 3)
+  B <- matrix(par[5:10], nrow = 2, byrow = TRUE)
   # H is 1x2 (maps 2 states to 1 observation Y)
   H <- matrix(c(1, 0), nrow = 1, ncol = 2)    # C
   #H <- matrix(par[11:12], nrow = 1, ncol = 2) # C
-  # Initial values for X are the first observation values (initiall guess (10.79))
-  X0 <- matrix(c(df$Y[1], df$Y[1]), nrow = 2, ncol = 1)
+  # Initial values for X are the first observation values (initial guess (10.79))
+  X0 <- matrix(c(df$Y[1], 0), nrow = 2)
   
   obs_cols <- c("Y")
   input_cols <- c("Ta","S","I") 
   
-  # System Noise Q (using lower triangular Qlt to keep it positive definite)
+  # System Noise Q (using lower triangular matrix Qlt to keep it positive definite)
   Qlt <- matrix(0, 2, 2)
   Qlt[1,1] <- par[11]
   Qlt[2,1] <- par[12]
@@ -54,16 +54,16 @@ kf_logLik_dt <- function(par, df) {
     
     # Innovation step
     y_pred <- H %*% x_pred
-    S_t    <- H %*% P_pred %*% t(H) + R_obs  # innovation variance 
+    S_t    <- as.numeric(H %*% P_pred %*% t(H) + R_obs)  # innovation variance 
     innov  <- Y[t] - y_pred
     
     # Log-likelihood
     # Note: Use det(S_t) for the log-likelihood calculation
-    logLik <- logLik - 0.5 * (log(det(S_t)) + t(innov) %*% solve(S_t) %*% innov)  # look at given code
+    logLik <- logLik - 0.5 * (log(S_t) + innov^2 / S_t)  # look at given code
     
     # Update step (reconstruction)
-    # K_t = P_pred * H^T * inv(S_t)
-    K_t   <- P_pred %*% t(H) %*% solve(S_t)   # Kalman gain
+    #K_t   <- P_pred %*% t(H) %*% solve(S_t)   # Kalman gain
+    K_t <- (P_pred %*% t(H)) / S_t              # Kalman gain
     x_est <- x_pred + K_t %*% innov
     P_est <- (diag(2) - K_t %*% H) %*% P_pred
   }
@@ -88,7 +88,7 @@ setwd("C:\\Users\\Anja\\OneDrive\\Skrivebord\\Time Series Analysis\\Assignment4\
 transformer_data <- read.csv("transformer_data.csv")
 
 
-# Define the full parameter vector (18 elements) (initial parameters)
+# Define the full parameter vector (initial parameters)
 start_par <- c(
   0.9, 0,               # A row 1
   0, 0.9,               # A row 2
@@ -114,8 +114,8 @@ result_2d <- estimate_dt(
 opt_par <- result_2d$par
 
 # Reconstruct the matrices (the estimates)
-A_est <- matrix(opt_par[1:4], nrow = 2, ncol = 2)
-B_est <- matrix(opt_par[5:10], nrow = 2, ncol = 3)
+A_est <- matrix(opt_par[1:4], nrow = 2, byrow = TRUE)
+B_est <- matrix(opt_par[5:10], nrow = 2, byrow = TRUE)
 
 # System and observation noise
 Qlt_est <- matrix(0, 2, 2)
@@ -133,4 +133,5 @@ print(Qlt_est)
 # Checking convergence to see if the initial values where okay
 result_2d$convergence
 
-
+# Checking the eigenvalues for A
+eigen(A_est)$values
