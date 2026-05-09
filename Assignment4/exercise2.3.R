@@ -7,21 +7,23 @@ kf_logLik_dt <- function(par, df) {
   # B is 2x3 (maps 3 inputs to 2 states)
   B <- matrix(par[5:10], nrow = 2, ncol = 3)
   # H is 1x2 (maps 2 states to 1 observation Y)
-  H <- matrix(par[11:12], nrow = 1, ncol = 2) # C
+  H <- matrix(c(1, 0), nrow = 1, ncol = 2)    # C
+  #H <- matrix(par[11:12], nrow = 1, ncol = 2) # C
+  # Initial values for X are the first observation values (initiall guess (10.79))
+  X0 <- matrix(c(df$Y[1], df$Y[1]), nrow = 2, ncol = 1)
   
   obs_cols <- c("Y")
   input_cols <- c("Ta","S","I") 
   
   # System Noise Q (using lower triangular Qlt to keep it positive definite)
   Qlt <- matrix(0, 2, 2)
-  Qlt[1,1] <- par[13]
-  Qlt[2,1] <- par[14]
-  Qlt[2,2] <- par[15]
-  Q <- Qlt %*% t(Qlt) # Sigma_1
+  Qlt[1,1] <- par[11]
+  Qlt[2,1] <- par[12]
+  Qlt[2,2] <- par[13]
+  Q <- Qlt %*% t(Qlt) # Sigma_1 
   
-  # Observation Noise (scalar) and Initial State X_0
-  R_obs <- matrix(exp(par[16])) # exp ensures variance is always positive (Sigma_2)
-  X0 <- matrix(par[17:18], 2, 1)   # Initial guess (10.79)
+  # Observation Noise (scalar) and Initial State
+  R_obs <- matrix(exp(par[14])) # exp ensures variance is always positive (Sigma_2)
   
   # pull out data
   Y  <- as.matrix(df[, obs_cols])     # m×T
@@ -90,12 +92,10 @@ transformer_data <- read.csv("transformer_data.csv")
 start_par <- c(
   0.9, 0,               # A row 1
   0, 0.9,               # A row 2
-  1, 1, 1,              # B row 1
-  1, 1, 1,              # B row 2
-  1, 0,                 # H (1x2)
+  0.1, 0.1, 0.1,              # B row 1
+  0.1, 0.1, 0.1,              # B row 2
   0.1, 0, 0.1,          # Qlt (3 params)
-  log(1),               # R_obs (log to ensure positive variance)
-  transformer_data$Y[1], transformer_data$Y[1] # X0 guess
+  log(1)               # R_obs (log to ensure positive variance)
 )
 
 
@@ -105,10 +105,9 @@ result_2d <- estimate_dt(
   df = transformer_data,
   # Bounds: ensure diagonal of A stays within stable range (-1, 1)
   # and variances (Qlt, R_obs) stay positive
-  lower = c(rep(-0.99, 4), rep(-Inf, 6), rep(-Inf, 2), 1e-4, -Inf, 1e-4, -Inf, -Inf, -Inf),
-  upper = c(rep(0.99, 4), rep(Inf, 6), rep(Inf, 2), Inf, Inf, Inf, Inf, Inf, Inf)
+  lower = c(rep(-0.99, 4), rep(-Inf, 6), 1e-4, -Inf, 1e-4, -Inf),
+  upper = c(rep(0.99, 4),  rep(Inf, 6),  Inf,  Inf,  Inf,  Inf)
 )
-
 
 # Extract the estimated model parameters
 # The final parameter vector (par)
@@ -117,22 +116,21 @@ opt_par <- result_2d$par
 # Reconstruct the matrices (the estimates)
 A_est <- matrix(opt_par[1:4], nrow = 2, ncol = 2)
 B_est <- matrix(opt_par[5:10], nrow = 2, ncol = 3)
-H_est <- matrix(opt_par[11:12], nrow = 1, ncol = 2)
 
 # System and observation noise
 Qlt_est <- matrix(0, 2, 2)
-Qlt_est[1,1] <- opt_par[13]
-Qlt_est[2,1] <- opt_par[14]
-Qlt_est[2,2] <- opt_par[15]
+Qlt_est[1,1] <- opt_par[11]
+Qlt_est[2,1] <- opt_par[12]
+Qlt_est[2,2] <- opt_par[13]
 Q_est <- Qlt_est %*% t(Qlt_est)
-
-R_est <- exp(opt_par[16])
-X0_est <- matrix(opt_par[17:18], nrow=2, ncol=1)
+R_est <- exp(opt_par[14])
 
 
 print(A_est)
 print(B_est)
-
+print(Qlt_est)
 
 # Checking convergence to see if the initial values where okay
 result_2d$convergence
+
+
