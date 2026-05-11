@@ -65,8 +65,6 @@ kf_logLik_dt <- function(par, df) {
   
   logLik <- 0
   
-  fitted_vals <- numeric(Tn)
-  residuals   <- numeric(Tn)
   
   # =======================================================
   # Kalman Filter Loop
@@ -121,13 +119,10 @@ kf_logLik_dt <- function(par, df) {
     
     P_est <- (diag(1) - K_t %*% H) %*% P_pred
   }
-  list(
-    fitted = fitted_vals,
-    residuals = residuals
-  )
   
   as.numeric(logLik)
 }
+
 
 # =========================================================
 # Optimizer wrapper
@@ -241,6 +236,110 @@ print(X0_est)
 
 result_1d$convergence
 
+
+# =========================================================
+# Kalman Filter Function
+# Obtain fitted values and residuals
+# =========================================================
+
+kalman_filter_run <- function(par, df) {
+  
+  # -------------------------------------------------------
+  # Rebuild matrices
+  # -------------------------------------------------------
+  
+  A <- matrix(par[1:4], nrow = 2, ncol = 2)
+  B <- matrix(par[5:10], nrow = 2, ncol = 3)
+  H <- matrix(par[11:12], nrow = 1, ncol = 2)
+  
+  Qlt <- matrix(0, 2, 2)
+  Qlt[1,1] <- par[13]
+  Qlt[2,1] <- par[14]
+  Qlt[2,2] <- par[15]
+  
+  Q <- Qlt %*% t(Qlt)
+  
+  R_obs <- matrix(exp(par[16]))
+  
+  X0 <- matrix(par[17:18], nrow = 2, ncol = 1)
+  
+  # -------------------------------------------------------
+  # Data
+  # -------------------------------------------------------
+  
+  Y <- as.matrix(df$Y)
+  U <- as.matrix(df[, c("Ta","S","I")])
+  
+  Tn <- nrow(df)
+  
+  # -------------------------------------------------------
+  # Initialization
+  # -------------------------------------------------------
+  
+  x_est <- X0
+  P_est <- diag(1, 2)
+  
+  fitted_vals <- numeric(Tn)
+  residuals   <- numeric(Tn)
+  
+  # =======================================================
+  # Kalman loop
+  # =======================================================
+  
+  for (t in 1:Tn) {
+    
+    u_t <- matrix(U[t, ], 3, 1)
+    
+    # Prediction
+    if (t == 1) {
+      
+      x_pred <- X0
+      P_pred <- diag(10, 2)
+      
+    } else {
+      
+      x_pred <- A %*% x_est + B %*% u_t
+      P_pred <- A %*% P_est %*% t(A) + Q
+      
+    }
+    
+    # Predicted observation
+    y_pred <- H %*% x_pred
+    
+    fitted_vals[t] <- y_pred[1,1]
+    
+    # Innovation
+    innov <- Y[t] - y_pred
+    
+    residuals[t] <- innov[1,1]
+    
+    # Innovation covariance
+    S_t <- H %*% P_pred %*% t(H) + R_obs
+    
+    # Kalman gain
+    K_t <- P_pred %*% t(H) %*% solve(S_t)
+    
+    # Update
+    x_est <- x_pred + K_t %*% innov
+    
+    P_est <- (diag(2) - K_t %*% H) %*% P_pred
+  }
+  
+  list(
+    fitted = fitted_vals,
+    residuals = residuals
+  )
+}
+
+
+# =========================================================
+# Run filter with estimated parameters
+# =========================================================
+
+kf_results <- kalman_filter_run(opt_par, transformer_data)
+
+residuals_kf <- kf_results$residuals
+fitted_kf    <- kf_results$fitted
 
 # =========================================================
 # Information Criteria
